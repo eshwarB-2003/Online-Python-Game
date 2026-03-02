@@ -5,7 +5,13 @@ from protocols import Protocols
 
 
 class Client:
-    def __init__(self, host="127.0.0.1", port=55555):
+# Client handles:
+# - Sending nickname to server
+# - Receiving game updates
+# - Displaying questions
+# - Sending answers
+# - Displaying leaderboard after game ends
+    def __init__(self, host="Your Host Address", port= 12345):
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.connect((host, port))
 
@@ -54,14 +60,19 @@ class Client:
     def close(self):
         self.closed = True
         self.server.close()
-    # Client should never calculate correctness
-    # def client_validate_answer(self, attempt):
-    #  question = self.get_current_question()
-    # answer = eval(question)
-    # if answer == int(attempt):
-    # self.current_question_index += 1
+# Client should never calculate correctness
+# def client_validate_answer(self, attempt):
+#  question = self.get_current_question()
+# answer = eval(question) dont use eval
+# if answer == int(attempt):
+# self.current_question_index += 1
 
     def handle_response(self, response):
+# Handles all server responses:
+# - START
+# - ANSWER_VALID / ANSWER_INVALID
+# - WINNER + Leaderboard
+# - Opponent info
         r_type = response.get("type")
         data = response.get("data")
         if r_type == Protocols.Response.NICKNAME:
@@ -88,6 +99,10 @@ class Client:
             print("Wrong answer. Try again.")
             threading.Thread(target=self.play_game).start()
         elif r_type == Protocols.Response.WINNER:
+ # Game over:
+# Display winner
+# Show updated leaderboard
+# Close client connection
             self.closed = True
             print("\nGame Over!")
             print(f"Winner: {data['winner']}")

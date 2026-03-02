@@ -1,3 +1,19 @@
+"""
+Multiplayer Math Quiz Game
+
+Architecture:
+- Threaded socket-based server
+- Server-authoritative answer validation
+- PostgreSQL persistence
+- Atomic ELO rating updates
+- Real-time leaderboard system
+
+Features:
+- Matchmaking system
+- Real-time opponent progress updates
+- Server-side cheat prevention
+- Thread-safe cleanup handling
+"""
 import socket
 import threading
 import json

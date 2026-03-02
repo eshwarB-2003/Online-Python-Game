@@ -21,10 +21,20 @@ from protocols import Protocols
 from room import Room
 import time
 from db import DB
-
+# Server handles:
+# - Client connections
+# - Matchmaking between two players
+# - Game state management
+# - Answer validation (server-authoritative)
+# - ELO updates and leaderboard distribution
 
 class Server:
-    def __init__(self, host="127.0.0.1", port=55555):
+    def __init__(self, host="Your host address", port=12345):
+# Initialize socket server and core data structures
+# client_names: maps client socket -> username
+# opponent: maps client socket -> opponent socket
+# rooms: maps client socket -> Room object
+# waiting_for_pair: stores a client waiting for opponent
         self.host = host
         self.port = port
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -59,6 +69,8 @@ class Server:
             break
 
     def create_room(self, client):
+# Creates a game room for two players
+# Sends opponent info including wins, losses, and rating
         print("Creating room.")
         room = Room(client, self.waiting_for_pair)
         self.opponent[client] = self.waiting_for_pair
@@ -90,6 +102,8 @@ class Server:
     def handle(self, client):
         self.handle_connect(client)
         self.wait_for_room(client)
+# Main loop for each connected client
+# Receives data and processes requests
 
         while True:
             try:
@@ -100,7 +114,8 @@ class Server:
                 self.handle_receive(message, client)
             except:
                 break
-        
+# Only notify opponent if game was not finished
+# Prevents leaderboard from being interrupted
         self.send_to_opponent(Protocols.Response.OPPONENT_LEFT, None, client)
         self.disconnect(client)
 
@@ -127,6 +142,8 @@ class Server:
         client.close()
 
     def handle_receive(self, message, client):
+# Handles all incoming messages from clients
+# Only server validates answers to prevent cheating
         print(message)
         r_type = message.get("type")
         data = message.get("data")
@@ -144,6 +161,7 @@ class Server:
         if not room:
              print("No room found for client!")
              return
+        # Verify answer using Room logic (server authoritative)
         correct = room.verify_answer(client, data)
         print("Answer correct?", correct)
         if not correct:
@@ -153,6 +171,11 @@ class Server:
         
         if room.indexs[client] >= len(room.questions):
             print("Game finished")
+ # Game finished logic:
+# - Update wins/losses
+# - Perform atomic ELO update
+# - Fetch updated leaderboard
+# - Send winner + leaderboard to BOTH players
             if not room.finished:
                 winner = self.client_names[client]
                 loser = self.client_names[self.opponent[client]]
@@ -171,6 +194,7 @@ class Server:
                     self.send(Protocols.Response.WINNER, payload, opponent)
             return
         self.send_to_opponent(Protocols.Response.OPPONENT_ADVANCE, None, client)
+        # If game not finished, notify opponent and confirm valid answer
         self.send(Protocols.Response.ANSWER_VALID, None, client)
 
     def send(self, r_type, data, client):

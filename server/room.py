@@ -10,10 +10,18 @@ class Room:
     def verify_answer(self, client, attempt):
         if self.finished:
             return False
+        if client not in self.indexs:
+            return False
         
         index = self.indexs[client]
+        if index >= len(self.questions):
+            return False
         answer = self.answers[index]
-        correct = answer == attempt
+        try:
+            attempt = int(attempt)
+        except:
+            return False
+        correct = answer == int(attempt) # reason for adding this int type is if user sends 2 as it store as string it should convert it into 2 and gives 
 
         if correct:
             self.indexs[client] += 1

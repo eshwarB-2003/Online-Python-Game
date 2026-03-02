@@ -9,8 +9,10 @@ class Protocols:
         ANSWER_INVALID = 'protocol.answer_invalid'
         WINNER = "protocol.winner"
         OPPONENT_LEFT = "protocol.opponent_left"
+        LEADERBOARD = "protocol.leaderboard"
 
     class Request:
         ANSWER = "protocol.answer"
         NICKNAME = "protocol.send_nickname"
         LEAVE = "protocol.leave"
+        LEADERBOARD = "protocol.get_leaderboard"

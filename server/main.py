@@ -58,7 +58,7 @@ class Server:
     def get_client_data(self, client):
         name = self.client_names[client]
         data = self.db.get_user_stats(name)
-        return {"name": name, "wins": data["wins"], "losses": data["losses"]}
+        return {"name": name, "wins": data["wins"], "losses": data["losses"], "rating": data["rating"]}
 
     def wait_for_room(self, client):
         while True:
@@ -67,7 +67,7 @@ class Server:
 
             if room and opponent:
                 self.send(Protocols.Response.QUESTIONS, room.questions, client)
-                time.sleep(1)
+                time.sleep(0.1)
                 self.send(Protocols.Response.START, None, client)
                 break
 
@@ -114,27 +114,48 @@ class Server:
         print(message)
         r_type = message.get("type")
         data = message.get("data")
-        room = self.rooms[client]
-
-        if r_type != Protocols.Request.ANSWER:
+        if r_type == Protocols.Request.LEADERBOARD:
+            print("Leaderboard requested")
+            leaderboard = self.db.get_top_players()
+            print("Sending leaderboard:", leaderboard)
+            self.send(Protocols.Response.LEADERBOARD, leaderboard, client)
             return
-        
+        if r_type != Protocols.Request.ANSWER:
+            print("Not an answer request")
+            return
+        room = self.rooms.get(client)
+        print("Room found:", room)
+        if not room:
+             print("No room found for client!")
+             return
         correct = room.verify_answer(client, data)
+        print("Answer correct?", correct)
         if not correct:
+            print("Sending ANSWER_INVALID")
             self.send(Protocols.Response.ANSWER_INVALID, None, client)
             return
         
         if room.indexs[client] >= len(room.questions):
+            print("Game finished")
             if not room.finished:
-                self.db.increase_wins(self.client_names[client])
-                self.db.increase_losses(self.client_names[self.opponent[client]])
+                winner = self.client_names[client]
+                loser = self.client_names[self.opponent[client]]
+                self.db.increase_wins(winner)
+                self.db.increase_losses(loser)
+                self.db.update_elo_atomic(winner, loser)
                 room.finished = True
-            
-            self.send_to_opponent(Protocols.Response.WINNER, self.client_names[client], client)
-            self.send(Protocols.Response.WINNER, self.client_names[client], client)
-        else:
-            self.send_to_opponent(Protocols.Response.OPPONENT_ADVANCE, None, client)
-            self.send(Protocols.Response.ANSWER_VALID, None, client)
+                leaderboard = self.db.get_top_players()
+                payload = {
+                    "winner": winner,
+                    "leaderboard": leaderboard
+                    }
+                self.send(Protocols.Response.WINNER, payload, client)
+                opponent = self.opponent.get(client)
+                if opponent:
+                    self.send(Protocols.Response.WINNER, payload, opponent)
+            return
+        self.send_to_opponent(Protocols.Response.OPPONENT_ADVANCE, None, client)
+        self.send(Protocols.Response.ANSWER_VALID, None, client)
 
     def send(self, r_type, data, client):
         message = {"type": r_type, "data": data}
